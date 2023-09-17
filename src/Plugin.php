@@ -18,23 +18,13 @@ use Composer\Util\Platform;
 use olvlvl\ComposerAttributeCollector\Filter\ContentFilter;
 use olvlvl\ComposerAttributeCollector\Filter\InterfaceFilter;
 use olvlvl\ComposerAttributeCollector\Filter\PathFilter;
-use ReflectionException;
-
-use function array_merge;
-use function file_put_contents;
-use function is_string;
-use function microtime;
-use function spl_autoload_register;
-use function sprintf;
-
-use const DIRECTORY_SEPARATOR;
 
 /**
  * @internal
  */
 final class Plugin implements PluginInterface, EventSubscriberInterface
 {
-    public const CACHE_DIR = '.composer-attribute-collector';
+    public const CACHE_DIR = 'vendor/.composer-attribute-collector';
 
     /**
      * @uses onPostAutoloadDump
@@ -51,23 +41,17 @@ final class Plugin implements PluginInterface, EventSubscriberInterface
     /**
      * @codeCoverageIgnore
      */
-    public function activate(Composer $composer, IOInterface $io): void
-    {
-    }
+    public function activate(Composer $composer, IOInterface $io): void {}
 
     /**
      * @codeCoverageIgnore
      */
-    public function deactivate(Composer $composer, IOInterface $io): void
-    {
-    }
+    public function deactivate(Composer $composer, IOInterface $io): void {}
 
     /**
      * @codeCoverageIgnore
      */
-    public function uninstall(Composer $composer, IOInterface $io): void
-    {
-    }
+    public function uninstall(Composer $composer, IOInterface $io): void {}
 
     public static function onPostAutoloadDump(Event $event): void
     {
@@ -75,15 +59,15 @@ final class Plugin implements PluginInterface, EventSubscriberInterface
         $config = Config::from($composer);
         $io = $event->getIO();
 
-        $start = microtime(true);
+        $start = \microtime(true);
         $io->write('<info>Generating attributes file</info>');
         self::dump($event->getComposer(), $config, $io);
         $elapsed = self::renderElapsedTime($start);
-        $io->write("<info>Generated attributes file in $elapsed</info>");
+        $io->write("<info>Generated attributes file in {$elapsed}</info>");
     }
 
     /**
-     * @throws ReflectionException
+     * @throws \ReflectionException
      */
     public static function dump(
         Composer $composer,
@@ -99,52 +83,52 @@ final class Plugin implements PluginInterface, EventSubscriberInterface
         $classMapFilter = new MemoizeClassMapFilter($datastore, $io);
         $attributeCollector = new MemoizeAttributeCollector(new ClassAttributeCollector($io), $datastore, $io);
 
-        $start = microtime(true);
+        $start = \microtime(true);
         $autoloads = $autoloadsBuilder->buildAutoloads($composer);
         $elapsed = self::renderElapsedTime($start);
-        $io->debug("Generating attributes file: built autoloads in $elapsed");
+        $io->debug("Generating attributes file: built autoloads in {$elapsed}");
 
-        $start = microtime(true);
+        $start = \microtime(true);
         $classMap = $classMapBuilder->buildClassMap($autoloads);
         $elapsed = self::renderElapsedTime($start);
-        $io->debug("Generating attributes file: built class map in $elapsed");
+        $io->debug("Generating attributes file: built class map in {$elapsed}");
 
         self::setupAutoload($classMap);
 
-        $start = microtime(true);
+        $start = \microtime(true);
         $filter = self::buildFileFilter($config);
         $classMap = $classMapFilter->filter(
             $classMap,
             fn (string $class, string $filepath): bool => $filter->filter($filepath, $class, $io)
         );
         $elapsed = self::renderElapsedTime($start);
-        $io->debug("Generating attributes file: filtered class map in $elapsed");
+        $io->debug("Generating attributes file: filtered class map in {$elapsed}");
 
-        $start = microtime(true);
+        $start = \microtime(true);
         $collection = $attributeCollector->collectAttributes($classMap);
         $elapsed = self::renderElapsedTime($start);
-        $io->debug("Generating attributes file: collected attributes in $elapsed");
+        $io->debug("Generating attributes file: collected attributes in {$elapsed}");
 
-        $start = microtime(true);
+        $start = \microtime(true);
         $code = self::render($collection);
         $elapsed = self::renderElapsedTime($start);
-        $io->debug("Generating attributes file: rendered code in $elapsed");
+        $io->debug("Generating attributes file: rendered code in {$elapsed}");
 
-        file_put_contents($config->attributesFile, $code);
+        \file_put_contents($config->attributesFile, $code);
     }
 
     private static function buildDefaultDatastore(IOInterface $io): Datastore
     {
         $basePath = Platform::getCwd();
 
-        assert($basePath !== '');
+        assert('' !== $basePath);
 
-        return new FileDatastore($basePath . DIRECTORY_SEPARATOR . self::CACHE_DIR, $io);
+        return new FileDatastore($basePath.\DIRECTORY_SEPARATOR.self::CACHE_DIR, $io);
     }
 
     private static function renderElapsedTime(float $start): string
     {
-        return sprintf("%.03f ms", (microtime(true) - $start) * 1000);
+        return \sprintf('%.03f ms', (\microtime(true) - $start) * 1000);
     }
 
     /**
@@ -152,7 +136,7 @@ final class Plugin implements PluginInterface, EventSubscriberInterface
      */
     private static function setupAutoload(array $classMap): void
     {
-        spl_autoload_register(static function (string $class) use ($classMap): void {
+        \spl_autoload_register(static function (string $class) use ($classMap): void {
             $file = $classMap[$class] ?? null;
             if ($file) {
                 require_once $file;
@@ -165,7 +149,7 @@ final class Plugin implements PluginInterface, EventSubscriberInterface
         return new Filter\Chain([
             new PathFilter($config->ignorePaths),
             new ContentFilter(),
-            new InterfaceFilter()
+            new InterfaceFilter(),
         ]);
     }
 
